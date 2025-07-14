@@ -12,14 +12,6 @@
 #include <vector>
 
 namespace geometry {
-
-/*
- * В коде везде используется DummyClass. Ваша задача - выбрать наиболее подходящий тип для решения задачи
- */
-struct DummyClass {
-    DummyClass(std::vector<Shape>) {}
-};
-
 /*
  * Добавьте к методам класса Point2D и Lines2DDyn все необходимые аттрибуты и спецификаторы
  * Важно: Возвращаемый тип и принимаемые аргументы менять не нужно
@@ -80,7 +72,10 @@ struct Lines2DDyn {
 struct BoundingBox {
     double min_x, min_y, max_x, max_y;
 
-    /* ваш код здесь */
+    bool Overlaps(const BoundingBox &) noexcept { return false; }
+    double Width() const noexcept { return 0; }
+    double Height() const noexcept { return 0; }
+    Point2D Center() const { return Point2D{}; }
 };
 
 struct Line {
@@ -110,7 +105,7 @@ struct RegularPolygon {
     constexpr RegularPolygon(Point2D center, double radius, int sides)
         : center_p(center), radius(radius), sides(sides) {}
 
-    std::vector<Point2D> Vertices() {
+    std::vector<Point2D> Vertices() const {
         std::vector<Point2D> points;
         points.reserve(sides);
 
@@ -143,7 +138,7 @@ struct Circle {
 
 class Polygon {
 public:
-    /* ваш код здесь */
+    std::vector<Point2D> Vertices() const { return std::vector<Point2D>{}; }
 
 private:
     std::vector<Point2D> points_;
@@ -151,6 +146,10 @@ private:
 };
 
 using Shape = std::variant<Line, Triangle, Rectangle, RegularPolygon, Circle, Polygon>;
+
+struct DummyClass {
+    DummyClass(std::vector<Shape>) {}
+};
 
 enum class GeometryError { Unsupported, NoIntersection, InvalidInput, DegenrateCase, InsufficientPoints };
 
