@@ -10,7 +10,10 @@
             "compilerPath": "/usr/bin/g++",
             "intelliSenseMode": "linux-gcc-x64",
             "cStandard": "c23",
-            "cppStandard": "c++26"
+            "cppStandard": "c++26",
+            "compileCommands": [
+                "${workspaceFolder}/build/build/compile_commands.json"
+            ]
         }
     ],
     "version": 4

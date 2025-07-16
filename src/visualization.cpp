@@ -27,7 +27,7 @@ void Draw(std::span<geometry::Shape> shapes) {
 
     for (const auto &[index, shape] : std::ranges::views::enumerate(shapes)) {
         std::visit(Multilambda{[&](const Line &line) {
-                                   const auto lines = line.Lines();
+                                //    const auto lines = line.Lines();
                                 //    plot(lines.x, lines.y)->line_width(2).color("yellow");
                                },
                                [&](const Triangle &tri) {

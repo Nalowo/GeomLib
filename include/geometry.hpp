@@ -77,10 +77,16 @@ struct Lines2DDyn {
 struct BoundingBox {
     double min_x, min_y, max_x, max_y;
 
-    bool Overlaps(const BoundingBox &) noexcept { return false; }
-    double Width() const noexcept { return 0; }
-    double Height() const noexcept { return 0; }
-    Point2D Center() const { return Point2D{}; }
+    bool Overlaps(const BoundingBox &other) noexcept {
+        if (max_x < other.min_x || other.max_x < min_x)
+            return false;
+        if (max_y < other.min_y || other.max_y < min_y)
+            return false;
+        return true;
+    }
+    double Width() const noexcept { return max_x - min_x; }
+    double Height() const noexcept { return max_y - min_y; }
+    Point2D Center() const { return {(min_x + max_x) * 0.5, (min_y + max_y) * 0.5}; }
 };
 
 using Vector2D = std::pair<double, double>;
@@ -88,13 +94,37 @@ using Vector2D = std::pair<double, double>;
 struct Line {
     Point2D start, end;
 
-    double Length() const noexcept { return 0; }
-    Vector2D Direction() const noexcept { return Vector2D{}; }
-    BoundingBox BoundBox() const { return BoundingBox{}; }
-    double Height() const noexcept { return 0; }
-    Point2D Center() const { return Point2D{}; }
-    std::vector<Point2D> Vertices() const { return std::vector<Point2D>{}; }
-    std::vector<Line> Lines() const { return std::vector<Line>{}; }
+    Vector2D Delta() const noexcept { return {end.x - start.x, end.y - start.y}; }
+    double Length() const noexcept {
+        auto dir = Delta();
+        return std::hypot(dir.first, dir.second);
+    }
+    Vector2D Direction(bool normalize = false) const noexcept {
+        auto [dx, dy] = Delta();
+        double len = std::hypot(dx, dy);
+        if (len < std::numeric_limits<double>::epsilon()) {
+            return {0.0, 0.0};
+        }
+        return {dx / len, dy / len};
+    }
+    BoundingBox BoundBox() const {
+        BoundingBox bb;
+        bb.min_x = std::min(start.x, end.x);
+        bb.max_x = std::max(start.x, end.x);
+        bb.min_y = std::min(start.y, end.y);
+        bb.max_y = std::max(start.y, end.y);
+        return bb;
+    }
+    // double Height() const noexcept { return 0; }
+    Point2D Center() const { return {(start.x + end.x) * 0.5, (start.y + end.y) * 0.5}; }
+    std::vector<Point2D> Vertices() const {
+        std::vector<Point2D> res;
+        res.reserve(2);
+        res.push_back(start);
+        res.push_back(end);
+        return res;
+    }
+    // std::vector<Line> Lines() const { return std::vector<Line>{}; }
 };
 
 struct Triangle {
