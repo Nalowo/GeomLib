@@ -27,28 +27,28 @@ void Draw(std::span<geometry::Shape> shapes) {
 
     for (const auto &[index, shape] : std::ranges::views::enumerate(shapes)) {
         std::visit(Multilambda{[&](const Line &line) {
-                                //    const auto lines = line.Lines();
-                                //    plot(lines.x, lines.y)->line_width(2).color("yellow");
+                                   const auto lines = line.Lines();
+                                   plot(lines.x, lines.y)->line_width(2).color("yellow");
                                },
                                [&](const Triangle &tri) {
                                    const auto lines = tri.Lines();
-                                //    plot(lines.x, lines.y)->line_width(2).color("blue");
+                                   plot(lines.x, lines.y)->line_width(2).color("blue");
                                },
                                [&](const Rectangle &rect) {
                                    const auto lines = rect.Lines();
-                                //    plot(lines.x, lines.y)->line_width(2).color("green");
+                                   plot(lines.x, lines.y)->line_width(2).color("green");
                                },
                                [&](const RegularPolygon &poly) {
                                    const auto lines = poly.Lines();
-                                //    plot(lines.x, lines.y)->line_width(2).color("magenta");
+                                   plot(lines.x, lines.y)->line_width(2).color("magenta");
                                },
                                [&](const Circle &circle) {
                                    const auto lines = circle.Lines();
-                                //    plot(lines.x, lines.y)->line_width(2).color("red");
+                                   plot(lines.x, lines.y)->line_width(2).color("red");
                                },
                                [&](const Polygon &poly) {
                                    const auto lines = poly.Lines();
-                                //    plot(lines.x, lines.y)->line_width(2).color("cyan");
+                                   plot(lines.x, lines.y)->line_width(2).color("cyan");
                                }},
                    shape);
 

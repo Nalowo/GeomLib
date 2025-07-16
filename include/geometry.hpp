@@ -102,52 +102,99 @@ struct Line {
     Vector2D Direction(bool normalize = false) const noexcept {
         auto [dx, dy] = Delta();
         double len = std::hypot(dx, dy);
-        if (len < std::numeric_limits<double>::epsilon()) {
+        if (len < std::numeric_limits<double>::epsilon())
             return {0.0, 0.0};
-        }
-        return {dx / len, dy / len};
+        return normalize ? Vector2D{dx / len, dy / len} : Vector2D{dx, dy};
     }
     BoundingBox BoundBox() const {
-        BoundingBox bb;
-        bb.min_x = std::min(start.x, end.x);
-        bb.max_x = std::max(start.x, end.x);
-        bb.min_y = std::min(start.y, end.y);
-        bb.max_y = std::max(start.y, end.y);
-        return bb;
+        return {std::min(start.x, end.x), std::min(start.y, end.y), std::max(start.x, end.x), std::max(start.y, end.y)};
     }
-    // double Height() const noexcept { return 0; }
     Point2D Center() const { return {(start.x + end.x) * 0.5, (start.y + end.y) * 0.5}; }
-    std::vector<Point2D> Vertices() const {
-        std::vector<Point2D> res;
-        res.reserve(2);
-        res.push_back(start);
-        res.push_back(end);
-        return res;
+    std::vector<Point2D> Vertices() const { return {start, end}; }
+    double Height() const noexcept { return std::abs(end.y - start.y); }
+    Lines2D<2> Lines() const noexcept {
+        Lines2D<2> out;
+        out.x = {start.x, end.x};
+        out.y = {start.y, end.y};
+        return out;
     }
-    // std::vector<Line> Lines() const { return std::vector<Line>{}; }
 };
 
 struct Triangle {
     Point2D a, b, c;
 
-    double Area() const noexcept { return 0; }
-    double Height() const noexcept { return 0; }
-    Point2D Center() const { return Point2D{}; }
-    BoundingBox BoundBox() const { return BoundingBox{}; }
-    std::vector<Point2D> Vertices() const { return std::vector<Point2D>{}; }
-    std::vector<Line> Lines() const { return std::vector<Line>{}; }
+    double Area() const noexcept {
+        double cross = (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+        return std::abs(cross) * 0.5;
+    }
+    double Height() const noexcept {
+        double base = std::hypot(b.x - a.x, b.y - a.y);
+        return base > 0.0 ? (2.0 * Area() / base) : 0.0;
+    }
+    Point2D Center() const {
+        double lenA = std::hypot(b.x - c.x, b.y - c.y);  // сторона BC, противоположная A
+        double lenB = std::hypot(c.x - a.x, c.y - a.y);  // сторона CA, противоположная B
+        double lenC = std::hypot(a.x - b.x, a.y - b.y);  // сторона AB, противоположная C
+
+        double sum = lenA + lenB + lenC;
+        if (sum == 0.0)
+            return Point2D{};
+
+        return Point2D{(lenA * a.x + lenB * b.x + lenC * c.x) / sum, (lenA * a.y + lenB * b.y + lenC * c.y) / sum};
+    }
+    BoundingBox BoundBox() const {
+        double min_x = std::min({a.x, b.x, c.x});
+        double max_x = std::max({a.x, b.x, c.x});
+        double min_y = std::min({a.y, b.y, c.y});
+        double max_y = std::max({a.y, b.y, c.y});
+
+        return BoundingBox{min_x, min_y, max_x, max_y};
+    }
+    std::vector<Point2D> Vertices() const { return {a, b, c}; }
+    Lines2D<4> Lines() const noexcept {
+        Lines2D<4> out;
+        out.x = {a.x, b.x, c.x, a.x};
+        out.y = {a.y, b.y, c.y, a.y};
+        return out;
+    }
 };
 
 struct Rectangle {
     Point2D bottom_left;
     double width, height;
 
-    double Area() const noexcept { return 0; }
-    double Height() const noexcept { return 0; }
-    Point2D Center() const { return Point2D{}; }
-    BoundingBox BoundBox() const { return BoundingBox{}; }
-    std::vector<Point2D> Vertices() const { return std::vector<Point2D>{}; }
-    std::vector<Line> Lines() const { return std::vector<Line>{}; }
+    double Area() const noexcept { return width * height; }
+    double Height() const noexcept { return height; }
+    Point2D Center() const noexcept { return {bottom_left.x + width * 0.5, bottom_left.y + height * 0.5}; }
+    BoundingBox BoundBox() const noexcept {
+        return {
+            bottom_left.x,          // min_x
+            bottom_left.y,          // min_y
+            bottom_left.x + width,  // max_x
+            bottom_left.y + height  // max_y
+        };
+    }
+    std::vector<Point2D> Vertices() const noexcept {
+        Point2D bl = bottom_left;
+        Point2D br = {bottom_left.x + width, bottom_left.y};
+        Point2D tr = {bottom_left.x + width, bottom_left.y + height};
+        Point2D tl = {bottom_left.x, bottom_left.y + height};
+        return {bl, br, tr, tl};
+    }
+    Lines2D<5> Lines() const noexcept {
+        Lines2D<5> out;
+
+        const double x0 = bottom_left.x;
+        const double y0 = bottom_left.y;
+        const double x1 = x0 + width;
+        const double y1 = y0 + height;
+
+        // порядок: bl, br, tr, tl, bl
+        out.x = {x0, x0, x1, x1, x0};
+        out.y = {y0, y1, y1, y0, y0};
+
+        return out;
+    }
 };
 
 struct RegularPolygon {
@@ -169,10 +216,21 @@ struct RegularPolygon {
         return points;
     }
 
-    double Height() const noexcept { return 0; }
-    Point2D Center() const { return Point2D{}; }
-    BoundingBox BoundBox() const { return BoundingBox{}; }
-    std::vector<Line> Lines() const { return std::vector<Line>{}; }
+    double Height() const noexcept { return 2.0 * radius; }
+    Point2D Center() const noexcept { return center_p; }
+    BoundingBox BoundBox() const noexcept {
+        return {center_p.x - radius, center_p.y - radius, center_p.x + radius, center_p.y + radius};
+    }
+    Lines2DDyn Lines(size_t /*unused*/ = 0) const {
+        Lines2DDyn out;
+        // у нас ровно sides ребер, но чтобы замкнуть контур, возьмём sides+1 точку
+        out.Reserve(sides + 1);
+        for (int i = 0; i <= sides; ++i) {
+            double ang = 2 * std::numbers::pi * double(i) / double(sides);
+            out.PushBack(center_p.x + radius * std::cos(ang), center_p.y + radius * std::sin(ang));
+        }
+        return out;
+    }
 };
 
 struct Circle {
@@ -190,17 +248,76 @@ struct Circle {
     //
     // Должны быть сделана по аналогии с RegularPolygon::Vertices
     //
-    std::vector<Point2D> Vertices(size_t N = 30) const { return {}; }
-    Lines2DDyn Lines(size_t N = 100) const { return {}; }
+    std::vector<Point2D> Vertices(size_t N = 30) const {
+        std::vector<Point2D> pts;
+        pts.reserve(N);
+        for (size_t i = 0; i < N; ++i) {
+            double ang = 2 * std::numbers::pi * double(i) / double(N);
+            pts.emplace_back(center_p.x + radius * std::cos(ang), center_p.y + radius * std::sin(ang));
+        }
+        return pts;
+    }
+    Lines2DDyn Lines(size_t N = 100) const {
+        Lines2DDyn out;
+        out.Reserve(N + 1);  // +1, чтобы замкнуть контур
+        for (size_t i = 0; i <= N; ++i) {
+            double ang = 2 * std::numbers::pi * double(i) / double(N);
+            out.PushBack(center_p.x + radius * std::cos(ang), center_p.y + radius * std::sin(ang));
+        }
+        return out;
+    }
 };
 
 class Polygon {
 public:
-    std::vector<Point2D> Vertices() const { return std::vector<Point2D>{}; }
-    double Height() const noexcept { return 0; }
-    Point2D Center() const { return Point2D{}; }
-    BoundingBox BoundBox() const { return BoundingBox{}; }
-    std::vector<Line> Lines() const { return std::vector<Line>{}; }
+    std::vector<Point2D> Vertices() const { return points_; }
+    double Height() const noexcept { return bounding_box_.max_y - bounding_box_.min_y; }
+    Point2D Center() const {
+        if (points_.empty())
+            return Point2D{};
+        double sum_x = 0, sum_y = 0;
+        for (const auto &p : points_) {
+            sum_x += p.x;
+            sum_y += p.y;
+        }
+        return Point2D{sum_x / points_.size(), sum_y / points_.size()};
+    }
+    BoundingBox BoundBox() const { return bounding_box_; }
+    Lines2DDyn Lines() const {
+        Lines2DDyn lines;
+        lines.Reserve(points_.size() + 1);
+
+        for (const auto &p : points_)
+            lines.PushBack(p);
+
+        if (!points_.empty())
+            lines.PushBack(points_.front());
+
+        return lines;
+    }
+
+    void SetPoints(const std::vector<Point2D> &pts) {
+        points_ = pts;
+        if (pts.empty()) {
+            bounding_box_ = BoundingBox{};
+            return;
+        }
+
+        double min_x = pts[0].x, max_x = pts[0].x;
+        double min_y = pts[0].y, max_y = pts[0].y;
+        for (const auto &p : pts) {
+            if (p.x < min_x)
+                min_x = p.x;
+            if (p.x > max_x)
+                max_x = p.x;
+            if (p.y < min_y)
+                min_y = p.y;
+            if (p.y > max_y)
+                max_y = p.y;
+        }
+
+        bounding_box_ = BoundingBox{min_x, min_y, max_x, max_y};
+    }
 
 private:
     std::vector<Point2D> points_;
