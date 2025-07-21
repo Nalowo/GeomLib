@@ -12,7 +12,7 @@ namespace geometry::utils {
 class ShapeGenerator {
 public:
     ShapeGenerator(double min_coord = -100.0, double max_coord = 100.0, double min_size = 1.0, double max_size = 20.0)
-        : gen(std::random_device{}()), coord_dist(min_coord, max_coord), size_dist(min_size, max_size), sides_dist(3, 12), type_dist(0, 4) {
+        : gen(std::random_device{}()) /*gen(20)*/, coord_dist(min_coord, max_coord), size_dist(min_size, max_size), sides_dist(3, 12), type_dist(0, 4) {
     }
 
     Shape GenerateRandomShape() {

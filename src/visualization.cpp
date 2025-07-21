@@ -6,12 +6,7 @@
 
 namespace geometry::visualization {
 
-template <class... Ts>
-struct Multilambda : Ts... {
-    using Ts::operator()...;
-};
-
-void Draw(std::span<geometry::Shape> shapes) {
+void Draw(std::span<const geometry::Shape> shapes) {
     using namespace geometry;
     using namespace matplot;
 

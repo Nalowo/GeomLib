@@ -8,8 +8,14 @@
 #include <optional>
 #include <print>
 #include <ranges>
+#include <unordered_map>
 #include <variant>
 #include <vector>
+
+template <class... Ts>
+struct Multilambda : Ts... {
+    using Ts::operator()...;
+};
 
 namespace geometry {
 /*
@@ -296,7 +302,7 @@ public:
     }
 
     template <typename Vec>
-    void SetPoints(Vec &&pts) noexcept(std::is_rvalue_reference_v<Vec&&>) {
+    void SetPoints(Vec &&pts) noexcept(std::is_rvalue_reference_v<Vec &&>) {
         points_ = std::forward<Vec>(pts);
         UpdateBoundingBox();
     }
@@ -339,7 +345,85 @@ struct DummyClass {
     DummyClass(std::vector<Shape>) {}
 };
 
+class Document {
+public:
+    using ShapeContainer = std::vector<Shape>;
+
+    explicit Document(ShapeContainer iShapes) : _shapes(std::move(iShapes)) { ReIndex(); }
+
+    Document(const Document& ) = delete;
+    Document& operator()(const Document&) = delete;
+    Document(Document&& ) = delete;
+    Document& operator()(Document&&) = delete;
+
+    std::optional<size_t> GetIndex(const Shape *iShape) const {
+        if (auto it = _index.find(iShape); it != _index.end())
+            return it->second;
+        return std::nullopt;
+    }
+
+    std::optional<size_t> GetIndex(const Shape &iShape) const { return GetIndex(&iShape); }
+
+    Shape &GetShape(size_t indx) {
+        if (indx >= _shapes.size())
+            throw std::logic_error("Wrong shape index");
+        return _shapes[indx];
+    }
+
+    const ShapeContainer &GetShapeContainer() const { return _shapes; }
+
+    [[nodiscard]] ShapeContainer &&TakeShapeContainer() noexcept {
+        _index.clear();
+        return std::move(_shapes);
+    }
+
+    size_t size() const noexcept
+    {
+        return _shapes.size();
+    }
+
+private:
+    void ReIndex() {
+        _index.clear();
+        for (auto [idx, shape] : _shapes | std::ranges::views::enumerate)
+            _index[&shape] = idx;
+    }
+
+    std::unordered_map<const Shape *, size_t> _index;
+    ShapeContainer _shapes;
+};  // end class Document
 }  // namespace geometry
+
+template <>
+struct std::formatter<geometry::GeometryError> {
+    constexpr auto parse(std::format_parse_context &ctx) { return ctx.begin(); }
+
+    template <typename FormatContext>
+    auto format(const geometry::GeometryError &e, FormatContext &ctx) const {
+        auto out = ctx.out();
+        switch (e) {
+        case geometry::GeometryError::Unsupported:
+            std::format_to(out, "Unsupported");
+            break;
+        case geometry::GeometryError::NoIntersection:
+            std::format_to(out, "No Intersection");
+            break;
+        case geometry::GeometryError::InvalidInput:
+            std::format_to(out, "Invalid Input");
+            break;
+        case geometry::GeometryError::DegenrateCase:
+            std::format_to(out, "Degenrate Case");
+            break;
+        case geometry::GeometryError::InsufficientPoints:
+            std::format_to(out, "Insufficient Points");
+            break;
+        default:
+            std::format_to(out, "Geometry error has`t implemented");
+            break;
+        }
+        return out;
+    }
+};
 
 template <>
 struct std::formatter<geometry::Point2D> {

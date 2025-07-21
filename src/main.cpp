@@ -15,7 +15,7 @@ using namespace geometry;
 namespace rng = std::ranges;
 namespace views = std::ranges::views;
 
-void PrintAllIntersections(const Shape &shape, DummyClass others) {
+void PrintAllIntersections(const Shape &shape, const geometry::Document& others) {
     std::println("\n=== Intersections ===");
 
     /*
@@ -26,9 +26,58 @@ void PrintAllIntersections(const Shape &shape, DummyClass others) {
      *     - Пересечение найдено в точке A между фигурами B и C
      *     - Фигуры B и C не пересекаются
      */
+
+    auto supported = [&shape](const auto& rhs) {
+        return std::visit(Multilambda{// true для Line&Line, Line&Circle, Circle&Line, Circle&Circle
+                                     [](const Line &, const Line &) { return true; },
+                                     [](const Line &, const Circle &) { return true; },
+                                     [](const Circle &, const Line &) { return true; },
+                                     [](const Circle &, const Circle &) { return true; },
+                                     // все прочие — false
+                                     [](auto &&, auto &&) { return false; }},
+                          shape, rhs);
+    };
+
+    if (!std::holds_alternative<geometry::Circle>(shape) 
+        && !std::holds_alternative<geometry::Line>(shape))
+    {
+        std::println("Lhs shape type unsupported for search intersections");
+        return;
+    }
+
+    try
+    {
+        auto lhsShapeIndex = others.GetIndex(shape).or_else([]() -> std::optional<size_t>
+        {
+            throw std::logic_error("Lhs shape index was`t found");
+        });
+        for (const auto& rShape : others.GetShapeContainer() | views::filter(supported)) {
+            auto rhsShapeIndex = others.GetIndex(rShape);
+            if (!rhsShapeIndex)
+            {
+                std::println("Rhs shape index was`t found");
+                continue;
+            }
+            if (*lhsShapeIndex == *rhsShapeIndex)
+                continue;
+            geometry::intersections::GetIntersectPoint(shape, rShape).transform([&](Point2D p) 
+            {
+                std::println("Intersection at {} between {} and {}", p, *lhsShapeIndex, *rhsShapeIndex);
+                return p;
+            }).or_else([&](GeometryError err) -> std::expected<Point2D, GeometryError> 
+            {
+                std::println("Shape {} and {} have: {}", *lhsShapeIndex, *rhsShapeIndex, err);
+                return std::unexpected(err);
+            });
+        }
+    }
+    catch (const std::exception& e)
+    {
+        std::println("Errore: {}", e.what());
+    }
 }
 
-void PrintDistancesFromPointToShapes(Point2D p, DummyClass shapes) {
+void PrintDistancesFromPointToShapes(Point2D p, const geometry::Document& shapes) {
     std::println("\n=== Distance from Point Test ===");
     std::println("Testing point: {} ", p);
 
@@ -63,17 +112,26 @@ void PerformExtraShapeAnalysis(std::span<const Shape> shapes) {
 int main() {
     utils::ShapeGenerator generator(-50.0, 50.0, 5.0, 25.0);
     std::vector<Shape> shapes = generator.GenerateShapes(15);
-
+    
     std::println("Generated {} random shapes", shapes.size());
 
     // Выведите индекс каждой фигуры и её высоту
+    for (const auto &[index, shape] : views::enumerate(shapes))
+    {
+        auto height = std::visit(Multilambda([](const auto& shape)
+        {
+            return shape.Height();
+        }), shape);
+        std::println("Shape index - {}, height: {}", index, std::abs(height));
+    }
 
+    Document doc(std::move(shapes));
     //
     // Вызываем разработанные функции
     //
-    PrintAllIntersections(shapes[0], shapes);
+    PrintAllIntersections(doc.GetShape(0), doc);
 
-    PrintDistancesFromPointToShapes(Point2D{10.0, 10.0}, shapes);
+    PrintDistancesFromPointToShapes(Point2D{10.0, 10.0}, doc);
 
     PerformShapeAnalysis(shapes);
 
@@ -84,7 +142,7 @@ int main() {
     //
     // Важно: после изучения графика - нажмите Enter чтобы продолжить выполнение и построить 2ой график
     //
-    geometry::visualization::Draw(shapes);
+    geometry::visualization::Draw(doc.GetShapeContainer());
 
     //
     // Формируем список из вершин всех фигур

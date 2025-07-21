@@ -17,11 +17,7 @@ struct Multilambda : Ts... {
  * Требуется организовать возможность нахождения расстояния для всех возможных фигур типа-суммы Shape
  */
 struct PointToShapeDistanceVisitor {
-    Point2D point;
-
-    explicit PointToShapeDistanceVisitor(const Point2D &p) : point(p) {}
-
-    /* ваш код здесь */
+    double operator()(const Point2D &p, const Shape &shape) { return DistanceToPoint(shape, p); }
 };
 
 /*
