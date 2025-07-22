@@ -86,6 +86,27 @@ void PrintDistancesFromPointToShapes(Point2D p, const geometry::Document& shapes
      * Затем найдите расстояния от заданной точки до всех выбранных фигур.
      * Выведите результат в формате "Расстояние от точки P до фигуры S равно D"
      */
+    
+    try
+    {
+        auto sv = shapes.GetShapeContainer() | views::take(std::min(shapes.size(), size_t(5)));
+        for (const auto& shape : sv)
+        {
+            auto shapeIndex = shapes.GetIndex(shape);
+            if (!shapeIndex)
+            {
+                std::println("Rhs shape index not found");
+                continue;
+            }
+
+            std::println("Distance from {} to shape {} - {}", p, *shapeIndex, 
+            geometry::queries::PointToShapeDistanceVisitor{}(p, shape));
+        }
+    }
+    catch (const std::exception& e)
+    {
+        std::println("Errore: {}", e.what());
+    }
 }
 
 void PerformShapeAnalysis(DummyClass shapes) {
