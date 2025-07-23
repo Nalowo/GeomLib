@@ -348,6 +348,8 @@ struct DummyClass {
 class Document {
 public:
     using ShapeContainer = std::vector<Shape>;
+    using iterator = ShapeContainer::iterator;
+    using const_iterator = ShapeContainer::const_iterator;
 
     explicit Document(ShapeContainer iShapes) : _shapes(std::move(iShapes)) { ReIndex(); }
 
@@ -381,6 +383,13 @@ public:
     {
         return _shapes.size();
     }
+
+    iterator begin() noexcept             { return _shapes.begin(); }
+    iterator end()   noexcept             { return _shapes.end();   }
+    const_iterator begin() const noexcept { return _shapes.begin(); }
+    const_iterator end()   const noexcept { return _shapes.end();   }
+    const_iterator cbegin() const noexcept{ return _shapes.cbegin(); }
+    const_iterator cend()   const noexcept{ return _shapes.cend();   }
 
 private:
     void ReIndex() {

@@ -47,26 +47,18 @@ void PrintAllIntersections(const Shape &shape, const geometry::Document& others)
 
     try
     {
-        auto lhsShapeIndex = others.GetIndex(shape).or_else([]() -> std::optional<size_t>
-        {
-            throw std::logic_error("Lhs shape index was`t found");
-        });
+        auto lhsShapeIndex = others.GetIndex(shape).value();
         for (const auto& rShape : others.GetShapeContainer() | views::filter(supported)) {
-            auto rhsShapeIndex = others.GetIndex(rShape);
-            if (!rhsShapeIndex)
-            {
-                std::println("Rhs shape index was`t found");
-                continue;
-            }
-            if (*lhsShapeIndex == *rhsShapeIndex)
+            auto rhsShapeIndex = others.GetIndex(rShape).value();
+            if (lhsShapeIndex == rhsShapeIndex)
                 continue;
             geometry::intersections::GetIntersectPoint(shape, rShape).transform([&](Point2D p) 
             {
-                std::println("Intersection at {} between {} and {}", p, *lhsShapeIndex, *rhsShapeIndex);
+                std::println("Intersection at {} between {} and {}", p, lhsShapeIndex, rhsShapeIndex);
                 return p;
             }).or_else([&](GeometryError err) -> std::expected<Point2D, GeometryError> 
             {
-                std::println("Shape {} and {} have: {}", *lhsShapeIndex, *rhsShapeIndex, err);
+                std::println("Shape {} and {} have: {}", lhsShapeIndex, rhsShapeIndex, err);
                 return std::unexpected(err);
             });
         }
@@ -99,7 +91,7 @@ void PrintDistancesFromPointToShapes(Point2D p, const geometry::Document& shapes
                 continue;
             }
 
-            std::println("Distance from {} to shape {} - {}", p, *shapeIndex, 
+            std::println("Distance from {} to shape {} - {:.2f}", p, *shapeIndex, 
             geometry::queries::PointToShapeDistanceVisitor{}(p, shape));
         }
     }
@@ -109,7 +101,7 @@ void PrintDistancesFromPointToShapes(Point2D p, const geometry::Document& shapes
     }
 }
 
-void PerformShapeAnalysis(DummyClass shapes) {
+void PerformShapeAnalysis(const geometry::Document& shapes) {
     std::println("\n=== Shape Analysis ===");
 
     /*
@@ -118,16 +110,99 @@ void PerformShapeAnalysis(DummyClass shapes) {
      *     - Найти самую высокую фигуру (чья высота наибольшая)
      *     - Вывести расстояние между любыми двумя фигурами, которые поддерживают данную функциональность
      */
+
+    try
+    {
+        auto collisions = geometry::utils::FindAllCollisions(shapes);
+        rng::for_each(collisions, [&shapes](const auto& pair)
+        {
+            const auto& [l, r] = pair;
+            auto lIndex = shapes.GetIndex(l.get()).value();
+            auto rIndex = shapes.GetIndex(r.get()).value();
+            if (lIndex && rIndex)
+            {
+                std::println("Collision between: {} {}", lIndex, rIndex);
+            }
+        });
+    }
+    catch (const std::exception& e)
+    {
+        std::println("Errore: {}", e.what());
+    }
+
+    std::println("Max heigth is {:.2f}", geometry::utils::FindHighestShape(shapes).value());
+
+    try
+    {
+        auto indexed = shapes | std::views::enumerate;
+        auto resultView = views::cartesian_product(indexed, indexed)
+            | std::views::filter([](auto const& tup)
+            {
+                auto const& [l, r] = tup;
+                return std::get<0>(l) < std::get<0>(r);
+            })
+            | views::transform([](auto const &tup) {
+                const auto& [l, r] = tup;
+                auto const &a = std::get<1>(l);
+                auto const &b = std::get<1>(r);
+                return std::tuple{
+                    queries::DistanceBetweenShapes(a,b),
+                    std::cref(a),
+                    std::cref(b)
+                };
+            })
+            | views::filter([](auto const &t) {
+                return std::get<0>(t).has_value();
+            }) | views::take(1);; 
+        for (auto const & [dopt, a, b] : resultView) {
+            auto lIndx = shapes.GetIndex(a).value();
+            auto rIndx = shapes.GetIndex(b).value();
+            std::println("First distance between {} and {} is {:.2f}", lIndx, rIndx, dopt.value());
+        }
+    }
+    catch (const std::exception& e)
+    {
+        std::println("Errore: {}", e.what());
+    }
 }
 
-void PerformExtraShapeAnalysis(std::span<const Shape> shapes) {
+void PerformExtraShapeAnalysis(const geometry::Document& shapes) {
     std::println("\n=== Shape Extra Analysis ===");
-
     /*
      * Используйте ranges и созданные классы чтобы:
      *     - Вывести 3 любые фигуры, которые находятся выше 50.0
      *     - Вывести фигуры с наименьшей и с наибольшей высотами
      */
+
+    constexpr double MaxHeight = 50.0;
+    auto getHeight = [](auto &obj) { return std::visit([](auto &shape) { return shape.Height(); }, obj); };
+    auto res = shapes | views::filter([&](auto &shape) 
+    { 
+        return getHeight(shape) > MaxHeight; 
+    }) | views::take(3);
+
+    rng::for_each(res, [&](const auto &obj) 
+    {
+        std::println("{} is above {:.2f}", shapes.GetIndex(obj).value(), MaxHeight);
+    });
+
+    auto less = [getHeight](const auto& lhs, const auto& rhs)
+    {
+        return getHeight(lhs) < getHeight(rhs);
+    };
+
+    try
+    {
+        auto max_it = std::ranges::max_element(shapes, less);
+        auto min_it = std::ranges::min_element(shapes, less);
+        std::println("Min height - {} = {:.2f}, Max height - {} = {:.2f}",
+            shapes.GetIndex(*min_it).value(), getHeight(*min_it),
+            shapes.GetIndex(*max_it).value(), getHeight(*max_it));
+    }
+    catch(const std::exception& e)
+    {
+        std::println("Errore: {}", e.what());
+    }
 }
 
 int main() {
@@ -143,7 +218,7 @@ int main() {
         {
             return shape.Height();
         }), shape);
-        std::println("Shape index - {}, height: {}", index, std::abs(height));
+        std::println("Shape index - {}, height: {:.2f}", index, std::abs(height));
     }
 
     Document doc(std::move(shapes));
@@ -154,16 +229,16 @@ int main() {
 
     PrintDistancesFromPointToShapes(Point2D{10.0, 10.0}, doc);
 
-    PerformShapeAnalysis(shapes);
+    PerformShapeAnalysis(doc);
 
-    PerformExtraShapeAnalysis(shapes);
+    PerformExtraShapeAnalysis(doc);
 
     //
     // Рисуем все фигуры
     //
     // Важно: после изучения графика - нажмите Enter чтобы продолжить выполнение и построить 2ой график
     //
-    geometry::visualization::Draw(doc.GetShapeContainer());
+    geometry::visualization::Draw(doc);
 
     //
     // Формируем список из вершин всех фигур

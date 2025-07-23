@@ -12,7 +12,8 @@ namespace geometry::utils {
 class ShapeGenerator {
 public:
     ShapeGenerator(double min_coord = -100.0, double max_coord = 100.0, double min_size = 1.0, double max_size = 20.0)
-        : gen(std::random_device{}()) /*gen(20)*/, coord_dist(min_coord, max_coord), size_dist(min_size, max_size), sides_dist(3, 12), type_dist(0, 4) {
+        // : gen(std::random_device{}()) , coord_dist(min_coord, max_coord), size_dist(min_size, max_size), sides_dist(3, 12), type_dist(0, 4) {
+        : gen(20), coord_dist(min_coord, max_coord), size_dist(min_size, max_size), sides_dist(3, 12), type_dist(0, 4) {
     }
 
     Shape GenerateRandomShape() {
@@ -63,9 +64,9 @@ private:
     std::uniform_int_distribution<int> type_dist;
 };
 
-std::vector<std::pair<Shape, Shape>> FindAllCollisions(DummyClass shapes) {
-    std::vector<std::pair<Shape, Shape>> collisions;
-
+auto FindAllCollisions(std::span<const Shape> shapes) {
+    using ShapeRef     = std::reference_wrapper<const geometry::Shape>;
+    using RetType      = std::vector<std::pair<ShapeRef, ShapeRef>>;
     /*
      * Используйте библиотеку ranges, чтобы найти все коллизии между фигурами
      *
@@ -73,11 +74,28 @@ std::vector<std::pair<Shape, Shape>> FindAllCollisions(DummyClass shapes) {
      *
      * Также используйте наиболее эффективный метод добавления объектов в collisions
      */
+    auto indexed = shapes | std::views::enumerate;
+    auto collisionsView = std::views::cartesian_product(indexed, indexed) 
+    | std::views::filter([](auto const& tup){
+            // только i < j, чтобы не дублировать и не сравнивать с собой
+            auto const& [l, r] = tup;
+            return std::get<0>(l) < std::get<0>(r);
+    }) | std::views::filter([](auto const& tup){
+            const auto& [l, r] = tup;
+            return queries::BoundingBoxesOverlap(std::get<1>(l), std::get<1>(r));
+    }) | std::views::transform([](auto const& tup){
+            auto const& [l, r] = tup;
+            const geometry::Shape& s1 = std::get<1>(l);
+            const geometry::Shape& s2 = std::get<1>(r);
+            return std::pair<ShapeRef,ShapeRef>{
+                std::cref(s1), std::cref(s2)
+            };
+    });
 
-    return collisions;
+    return collisionsView | std::ranges::to<RetType>();
 }
 
-std::optional<size_t> FindHighestShape(DummyClass shapes) {
+std::optional<double> FindHighestShape(std::span<const Shape> shapes) {
 
     /*
      * Используйте библиотеку ranges, чтобы найти самую высокую фигуру
@@ -85,7 +103,11 @@ std::optional<size_t> FindHighestShape(DummyClass shapes) {
      * Важно: использование ручной итерации по фигурам не разрешается
      */
 
-    return std::nullopt;
+    auto maxElem = std::ranges::max_element(shapes, {}, geometry::queries::GetHeight);
+    if (maxElem == shapes.end()) {
+        return std::nullopt;
+    }
+    return geometry::queries::GetHeight(*maxElem);
 }
 
 }  // namespace geometry::utils

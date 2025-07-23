@@ -79,8 +79,7 @@ struct ShapeToShapeDistanceVisitor {
         return gap > 0.0 ? gap : 0.0;
     }
 
-    template <typename A, typename B>
-    std::optional<double> operator()(const A &, const B &) const noexcept {
+    std::optional<double> operator()(const auto& a, const auto& b) const noexcept {
         return std::nullopt;
     }
 };  // end class ShapeToShapeDistanceVisitor
@@ -187,7 +186,7 @@ inline bool BoundingBoxesOverlap(const Shape &shape1, const Shape &shape2) {
 }
 
 std::optional<double> DistanceBetweenShapes(const Shape &shape1, const Shape &shape2) {
-    return ShapeToShapeDistanceVisitor{}(shape1, shape2);
+    return std::visit(ShapeToShapeDistanceVisitor{}, shape1, shape2);
 }
 
 }  // namespace geometry::queries
