@@ -60,7 +60,26 @@ void Draw(std::span<const geometry::Shape> shapes) {
 }
 
 void Draw(std::span<const geometry::triangulation::DelaunayTriangle> triangles) {
-    // dаш код здесь
+    using namespace geometry;
+    using namespace matplot;
+
+    auto fig = figure(false);
+    fig->backend()->run_command("unset warnings");
+    fig->ioff();
+    fig->size(800, 800);
+    hold(on);
+    axis(equal);
+    grid(on);
+
+    for (auto const &tri : triangles) {
+        auto pts = tri.vertices();
+        std::vector<double> xs{ pts[0].x, pts[1].x, pts[2].x, pts[0].x };
+        std::vector<double> ys{ pts[0].y, pts[1].y, pts[2].y, pts[0].y };
+
+        plot(xs, ys)->line_width(1).color("black");
+    }
+
+    fig->show();
 }
 
 }  // namespace geometry::visualization

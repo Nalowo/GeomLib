@@ -280,6 +280,12 @@ int main() {
         // После успешного завершения алгоритма - выведите результат для проверки
         // используя geometry::visualization::Draw
         //
+
+        if (auto tri_result = geometry::triangulation::DelaunayTriangulation(points)) {
+            geometry::visualization::Draw(*tri_result);
+        } else {
+            std::println("Failed to compute Dela delaunayTriangulationunay triangulation: {}", tri_result.error());
+        }
     }
     return 0;
 }

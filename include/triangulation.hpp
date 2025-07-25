@@ -1,10 +1,10 @@
 #pragma once
+#include "details.hpp"
 #include "geometry.hpp"
 #include <algorithm>
 #include <format>
 #include <set>
 #include <vector>
-#include "details.hpp"
 
 namespace geometry::triangulation {
 
@@ -58,6 +58,18 @@ struct DelaunayTriangle {
         return shared_count == 2;
     }
 
+    bool operator==(const DelaunayTriangle &o) const noexcept {
+        std::array<Point2D, 3> va{a, b, c}, vb{o.a, o.b, o.c};
+        auto cmp = [](const Point2D &p1, const Point2D &p2) {
+            if (std::abs(p1.x - p2.x) > details::EPSILON)
+                return p1.x < p2.x;
+            return p1.y < p2.y;
+        };
+        std::sort(va.begin(), va.end(), cmp);
+        std::sort(vb.begin(), vb.end(), cmp);
+        return va[0] == vb[0] && va[1] == vb[1] && va[2] == vb[2];
+    }
+
     std::vector<Point2D> vertices() const { return {a, b, c}; }
 };
 
@@ -87,52 +99,78 @@ struct Edge {
 };
 
 inline GeometryResult<std::vector<DelaunayTriangle>> DelaunayTriangulation(std::span<const Point2D> points) {
+    if (points.size() < 3) {
+        return std::unexpected(GeometryError::InsufficientPoints);
+    }
 
-    /*
-    Триангуляция Делоне алгоритмом Боуэра-Ватсона
+    double min_x = points[0].x, max_x = points[0].x;
+    double min_y = points[0].y, max_y = points[0].y;
+    for (const auto &p : points) {
+        min_x = std::min(min_x, p.x);
+        max_x = std::max(max_x, p.x);
+        min_y = std::min(min_y, p.y);
+        max_y = std::max(max_y, p.y);
+    }
+    double dx = max_x - min_x;
+    double dy = max_y - min_y;
+    double max_d = std::max(dx, dy) * 2;
 
-    - wiki с описанием триангуляции Делоне    - https://en.wikipedia.org/wiki/Delaunay_triangulation
-    - wiki с описанием алгоритма и псевдокода - https://en.wikipedia.org/wiki/Bowyer%E2%80%93Watson_algorithm
-    */
+    Point2D super1(min_x - max_d, min_y - max_d);
+    Point2D super2(max_x + max_d, min_y - max_d);
+    Point2D super3((min_x + max_x) / 2, max_y + max_d);
+    std::vector<DelaunayTriangle> triangulation{DelaunayTriangle(super1, super2, super3)};
 
-    // Создаём список для хранения текущей триангуляции и добавляем в него "Супер-треугольник",
-    // содержащий внутри себя все точки
+    for (const auto &p : points) {
+        std::vector<DelaunayTriangle> bad_triangles;
+        for (const auto &tri : triangulation) {
+            if (tri.ContainsPoint(p)) {
+                bad_triangles.push_back(tri);
+            }
+        }
 
-    Point2D super1;
-    Point2D super2;
-    Point2D super3;
-    std::vector<DelaunayTriangle> triangulation;
+        std::set<Edge> polygon;
+        for (const auto &tri : bad_triangles) {
+            auto verts = tri.vertices();
+            Edge edges[3] = {{verts[0], verts[1]}, {verts[1], verts[2]}, {verts[2], verts[0]}};
+            for (const auto &edge : edges) {
+                if (auto it = polygon.find(edge); it == polygon.end()) {
+                    polygon.insert(edge);
+                } else {
+                    polygon.erase(it);
+                }
+            }
+        }
 
-    /*
-    Далее
+        triangulation.erase(std::remove_if(triangulation.begin(), triangulation.end(),
+                                           [&bad_triangles](const DelaunayTriangle &tri) {
+                                               return std::find(bad_triangles.begin(), bad_triangles.end(), tri) !=
+                                                      bad_triangles.end();
+                                           }),
+                            triangulation.end());
 
-    Цикл по всем точкам
+        for (const auto &edge : polygon) {
+            triangulation.emplace_back(edge.p1, edge.p2, p);
+        }
+    }
 
-        Для каждой новой точки:
+    triangulation.erase(std::remove_if(triangulation.begin(), triangulation.end(),
+                                       [&](const DelaunayTriangle &tri) {
+                                           auto verts = tri.vertices();
+                                           for (auto const &v : verts) {
+                                               bool isSuper1 = std::abs(v.x - super1.x) < details::EPSILON &&
+                                                               std::abs(v.y - super1.y) < details::EPSILON;
+                                               bool isSuper2 = std::abs(v.x - super2.x) < details::EPSILON &&
+                                                               std::abs(v.y - super2.y) < details::EPSILON;
+                                               bool isSuper3 = std::abs(v.x - super3.x) < details::EPSILON &&
+                                                               std::abs(v.y - super3.y) < details::EPSILON;
+                                               if (isSuper1 || isSuper2 || isSuper3)
+                                                   return true;
+                                           }
+                                           return false;
+                                       }),
+                        triangulation.end());
 
-            В цикле
-                Находятся все "плохие" треугольники (из текущей триангуляции), в чьи описанные окружности входит эта
-    точка (ContainsPoint); "плохими" называются треугольники, нарушающие условие Делоне (внутри окружности не должно
-    быть других точек);
-
-                Для всех рёбер этих треугольников формируется множество polygon, причём:
-                    - Если ребро ещё не встречалось - оно добавляется в polygon.
-                    - Если ребро встречается второй раз - оно удаляется из polygon.
-
-            Получившееся множество polygon - это граница "дырки" (polygonal hole), которую нужно заполнить новыми
-    треугольниками
-
-            Теперь требуется удалить из текущей триангуляции все плохие треугольники: cur_triangulation.erase(
-    bad_triangles.contains(*it) )
-
-            Для каждой границы "дырки" (polygonal hole) создаются новые треугольники с новой точкой: { ТочкаРебра1,
-    ТочкаРебра2, НоваяТочка }.
-
-    Конец цикла
-
-    Удаляем все треугольники, включающие вершины супер-треугольника.
-    */
-    return std::unexpected(GeometryError::Unsupported);
+    return triangulation;
 }
 }  // namespace geometry::triangulation
 

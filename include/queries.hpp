@@ -181,8 +181,12 @@ inline bool BoundingBoxesOverlap(const Shape &shape1, const Shape &shape2) {
     }, shape1, shape2);
 }
 
-std::optional<double> DistanceBetweenShapes(const Shape &shape1, const Shape &shape2) {
+inline std::optional<double> DistanceBetweenShapes(const Shape &shape1, const Shape &shape2) {
     return std::visit(ShapeToShapeDistanceVisitor{}, shape1, shape2);
+}
+
+inline std::optional<double> DistanceBetweenShapes(const Point2D &p, const Shape &shape2) {
+    return PointToShapeDistanceVisitor{}(p, shape2);
 }
 
 }  // namespace geometry::queries

@@ -7,7 +7,7 @@
 #include <utility>
 #include <vector>
 
-#define USE_RANDOM
+// #define USE_RANDOM
 
 namespace geometry::utils {
 
