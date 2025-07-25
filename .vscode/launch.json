@@ -8,7 +8,7 @@
             "type": "lldb",
             "request": "launch",
             "name": "Launch GeometryApp",
-            "program": "${workspaceFolder}/build/GeometryApp",
+            "program": "${workspaceFolder}/build/build/GeometryApp",
             "args": [
             ],
             "cwd": "${workspaceFolder}/build",

@@ -12,11 +12,6 @@
 #include <variant>
 #include <vector>
 
-template <class... Ts>
-struct Multilambda : Ts... {
-    using Ts::operator()...;
-};
-
 namespace geometry {
 /*
  * Добавьте к методам класса Point2D и Lines2DDyn все необходимые аттрибуты и спецификаторы
@@ -275,6 +270,13 @@ struct Circle {
 
 class Polygon {
 public:
+    using PointsContainer = std::vector<Point2D>;
+    Polygon(){}
+    Polygon(PointsContainer&& container): points_(std::forward<PointsContainer>(container))
+    {
+        UpdateBoundingBox();
+    }
+
     [[nodiscard]] std::vector<Point2D> Vertices() const noexcept { return points_; }
     [[nodiscard]] double Height() const noexcept { return bounding_box_.max_y - bounding_box_.min_y; }
     [[nodiscard]] Point2D Center() const noexcept {
@@ -302,6 +304,7 @@ public:
     }
 
     template <typename Vec>
+        requires std::is_same_v<std::decay_t<Vec>, PointsContainer>
     void SetPoints(Vec &&pts) noexcept(std::is_rvalue_reference_v<Vec &&>) {
         points_ = std::forward<Vec>(pts);
         UpdateBoundingBox();
@@ -330,7 +333,7 @@ private:
         bounding_box_ = BoundingBox{min_x, min_y, max_x, max_y};
     }
 
-    std::vector<Point2D> points_;
+    PointsContainer points_;
     BoundingBox bounding_box_;
 };
 
@@ -370,6 +373,13 @@ public:
         if (indx >= _shapes.size())
             throw std::logic_error("Wrong shape index");
         return _shapes[indx];
+    }
+
+    std::optional<size_t> AddShape(Shape&& iShape)
+    {
+        _shapes.push_back(std::forward<Shape>(iShape));
+        ReIndex();
+        return GetIndex(_shapes.back());
     }
 
     const ShapeContainer &GetShapeContainer() const { return _shapes; }

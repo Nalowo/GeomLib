@@ -81,5 +81,6 @@
     },
     "[cpp]": {
         // "editor.defaultFormatter": "inte"
-    }
+    },
+    "C_Cpp.errorSquiggles": "enabled"
 }

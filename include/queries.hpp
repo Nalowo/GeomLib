@@ -4,13 +4,9 @@
 #include <algorithm>
 #include <optional>
 #include <variant>
+#include "details.hpp"
 
 namespace geometry::queries {
-
-template <class... Ts>
-struct Multilambda : Ts... {
-    using Ts::operator()...;
-};
 
 inline double DistanceToPoint(const Shape &shape, const Point2D &point);
 
@@ -118,7 +114,7 @@ inline bool pointInPolygon(const Point2D &pt, const std::vector<Point2D> &verts)
  * Функции-помощники
  */
 inline double DistanceToPoint(const Shape &shape, const Point2D &point) {
-    return std::visit(Multilambda{[&](const Line &L) -> double { return pointSegmentDistance(point, L); },
+    return std::visit(details::Multilambda{[&](const Line &L) -> double { return pointSegmentDistance(point, L); },
                                   [&](const Triangle &T) -> double {
                                       auto verts = T.Vertices();
                                       if (pointInPolygon(point, verts))

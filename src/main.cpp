@@ -5,6 +5,7 @@
 #include "shape_utils.hpp"
 #include "triangulation.hpp"
 #include "visualization.hpp"
+#include "details.hpp"
 
 #include <algorithm>
 #include <print>
@@ -28,7 +29,7 @@ void PrintAllIntersections(const Shape &shape, const geometry::Document& others)
      */
 
     auto supported = [&shape](const auto& rhs) {
-        return std::visit(Multilambda{// true для Line&Line, Line&Circle, Circle&Line, Circle&Circle
+        return std::visit(details::Multilambda{// true для Line&Line, Line&Circle, Circle&Line, Circle&Circle
                                      [](const Line &, const Line &) { return true; },
                                      [](const Line &, const Circle &) { return true; },
                                      [](const Circle &, const Line &) { return true; },
@@ -214,7 +215,7 @@ int main() {
     // Выведите индекс каждой фигуры и её высоту
     for (const auto &[index, shape] : views::enumerate(shapes))
     {
-        auto height = std::visit(Multilambda([](const auto& shape)
+        auto height = std::visit(details::Multilambda([](const auto& shape)
         {
             return shape.Height();
         }), shape);
@@ -244,8 +245,12 @@ int main() {
     // Формируем список из вершин всех фигур
     //
     std::vector<Point2D> points;
-
-    /* ваш код здесь */
+    for (const auto& shape : doc) {
+        std::visit([&points](const auto& s) {
+            auto verts = s.Vertices();
+            points.insert(points.end(), verts.begin(), verts.end());
+        }, shape);
+    }
 
     //
     // Находим список точек, для построения выпуклой оболочки - convex hull - алгоритмом Грэхема
@@ -253,7 +258,13 @@ int main() {
     // Рисуем все фигуры
     //
 
-    /* ваш код здесь */
+    // Вычисление выпуклой оболочки
+    if (auto hullResult = geometry::convex_hull::GrahamScan(std::move(points))) {
+        doc.AddShape(geometry::Polygon(std::move(*hullResult)));
+        geometry::visualization::Draw(doc);
+    } else {
+        std::println("Failed to compute convex hull: {}", hullResult.error());
+    }
 
     //
     // после изучения графика - нажмите Enter чтобы продолжить выполнение и построить 3ий график

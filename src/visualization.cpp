@@ -1,5 +1,6 @@
 #include "visualization.hpp"
 #include "geometry.hpp"
+#include "details.hpp"
 
 #include <matplot/matplot.h>
 #include <print>
@@ -21,7 +22,7 @@ void Draw(std::span<const geometry::Shape> shapes) {
     grid(on);     // Enable grid by default
 
     for (const auto &[index, shape] : std::ranges::views::enumerate(shapes)) {
-        std::visit(Multilambda{[&](const Line &line) {
+        std::visit(details::Multilambda{[&](const Line &line) {
                                    const auto lines = line.Lines();
                                    plot(lines.x, lines.y)->line_width(2).color("yellow");
                                },
