@@ -8,11 +8,11 @@
             "type": "lldb",
             "request": "launch",
             "name": "Launch GeometryApp",
-            "program": "${workspaceFolder}/build/GeometryApp",
+            "program": "${workspaceFolder}/build/build/GeometryApp",
             "args": [
             ],
             "cwd": "${workspaceFolder}/build",
-            "preLaunchTask": "GCC: Build Debug app",
+            // "preLaunchTask": "GCC: Build Debug app",
             "initCommands": ["settings set target.disable-aslr false"]
         }
     ]
